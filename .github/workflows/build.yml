@@ -3,6 +3,7 @@ name: Publish macOS DMG
 on:
   push:
     branches:
+      - 'main'
       - 'agent/microphone-input'
     tags:
       - 'v*'

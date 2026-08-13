@@ -26,11 +26,7 @@ jobs:
         with:
           name: macos-dmg
           path: src-tauri/target/release/bundle/dmg/*.dmg
-      - name: Publish DMG prerelease
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.1.8-microphone.1
-          name: TransEcho 0.1.8 Microphone Input
-          prerelease: true
-          generate_release_notes: true
-          files: src-tauri/target/release/bundle/dmg/*.dmg
+      - name: Upload DMG to prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v0.1.8-microphone.1 src-tauri/target/release/bundle/dmg/*.dmg --clobber

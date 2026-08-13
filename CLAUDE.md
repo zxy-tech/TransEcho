@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TransEcho is a cross-platform (macOS + Windows) desktop real-time simultaneous interpretation (同声传译) application built with Tauri 2.x. It captures system audio, sends it to Volcengine's AST API over WebSocket, and displays source/translation subtitles in real-time with optional TTS playback.
+TransEcho is a cross-platform (macOS + Windows) desktop real-time simultaneous interpretation (同声传译) application built with Tauri 2.x. It captures microphone input, sends it to Volcengine's AST API over WebSocket, and displays source/translation subtitles in real-time with optional TTS playback.
 
 ## Build & Development Commands
 
@@ -37,8 +37,8 @@ Frontend (Svelte 5 / SvelteKit)     Backend (Rust / Tokio)
 │  +page.svelte (SPA)  │  Channel  │  start/stop_interpretation│
 └─────────────────────┘           ├──────────────────────────┤
                                    │ audio/                   │
-                                   │  capture_macos.rs (SCK)  │
-                                   │  capture_windows.rs(WASAPI)│
+                                   │  capture.rs (CPAL input) │
+                                   │  capture.rs (CPAL input)   │
                                    │  resample.rs (48k→16k)   │
                                    │  playback.rs (TTS/Rodio) │
                                    ├──────────────────────────┤
@@ -50,7 +50,7 @@ Frontend (Svelte 5 / SvelteKit)     Backend (Rust / Tokio)
                                    Volcengine AST API (wss://)
 ```
 
-**Data flow**: System audio (48kHz stereo f32) → silence detection (RMS hysteresis) → echo suppression (TTS timestamp cooldown) → resample (16kHz mono i16) → WebSocket → Volcengine AST → protobuf response → SubtitleEvent via Tauri Channel → frontend display. TTS audio (24kHz f32) from API is played via Rodio with jitter buffer.
+**Data flow**: Microphone input → silence detection (RMS hysteresis) → echo suppression (TTS timestamp cooldown) → resample (16kHz mono i16) → WebSocket → Volcengine AST → protobuf response → SubtitleEvent via Tauri Channel → frontend display. TTS audio (24kHz f32) from API is played via Rodio with jitter buffer.
 
 **Key design decisions**:
 - Single-page Svelte app with SSR disabled (`adapter-static`, `ssr = false`)
@@ -64,8 +64,7 @@ Frontend (Svelte 5 / SvelteKit)     Backend (Rust / Tokio)
 | Module | Role |
 |--------|------|
 | `src-tauri/src/commands.rs` | Tauri IPC commands, session orchestration, silence/echo/dedup logic |
-| `src-tauri/src/audio/capture_macos.rs` | macOS ScreenCaptureKit audio capture |
-| `src-tauri/src/audio/capture_windows.rs` | Windows WASAPI loopback audio capture (cpal) |
+| `src-tauri/src/audio/capture.rs` | Cross-platform default microphone capture (CPAL) |
 | `src-tauri/src/audio/resample.rs` | Rubato FFT resampler (48kHz stereo → 16kHz mono) |
 | `src-tauri/src/audio/playback.rs` | Rodio streaming TTS playback with jitter buffer, echo suppression timestamp |
 | `src-tauri/src/transport/client.rs` | WebSocket client to Volcengine AST API (wss://openspeech.bytedance.com) |
@@ -75,15 +74,14 @@ Frontend (Svelte 5 / SvelteKit)     Backend (Rust / Tokio)
 
 ## Platform-Specific Details
 
-- **macOS**: ScreenCaptureKit for audio capture (macOS 14.0+), requires screen recording permission. Audio capture excludes current process audio via `.with_excludes_current_process_audio(true)`.
-- **Windows**: WASAPI loopback via cpal. Captures ALL system audio including app's own TTS output, hence the echo suppression mechanism.
+- **macOS/Windows**: CPAL captures the operating system's default microphone input and requires microphone permission.
 - Audio capture module is selected at compile time via `#[cfg(target_os)]` in `audio/mod.rs`.
 - Platform string sent to API is mapped: `std::env::consts::OS` "macos" → "macOS" for API compatibility.
 
 ## Audio Pipeline Internals
 
 - **Silence detection**: RMS threshold 0.01 (normal) / 0.02 (wake from silence, hysteresis). Sustained silence after 30 frames.
-- **Echo suppression**: `AtomicI64` timestamp shared between TTS playback thread and capture pipeline. 150ms cooldown covers WASAPI device buffer latency.
+- **Echo suppression**: `AtomicI64` timestamp shared between TTS playback thread and capture pipeline. The cooldown reduces the chance that microphone input feeds TTS playback back into translation.
 - **Auto-pause**: After 60s sustained silence, auto-disconnects API to save tokens. Reconnects automatically when speech resumes (~1-2s delay). Short pauses (<60s) send zero frames for instant resume.
 - **Channel buffer sizes**: capture→pipeline: 50 frames, pipeline→API: 100 frames, TTS audio: 50 chunks.
 - **Unified task**: Audio pipeline and event loop are merged into a single tokio task using `tokio::select!`, enabling session lifecycle management (connect/disconnect/reconnect).

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>捕获系统音频，实时同声传译，所听即所译</strong>
+  <strong>捕获麦克风输入，实时同声传译，所说即所译</strong>
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@
 
 ---
 
-> 看日语直播听不懂？看英文会议跟不上？TransEcho 直接捕获 macOS 系统音频，实时翻译成你的语言，字幕 + 语音同传，零延迟体验。
+> TransEcho 直接捕获默认麦克风输入，实时翻译成你的目标语言，并提供字幕与可选语音播报。
 
 ## 截图预览
 
@@ -35,7 +35,7 @@
 
 ## 功能特性
 
-- **系统音频捕获** - 基于 ScreenCaptureKit，捕获任意应用的音频输出，无需虚拟声卡
+- **麦克风输入捕获** - 基于 CPAL，跨平台读取默认麦克风设备
 - **实时同声传译** - 基于豆包同声传译 2.0 大模型，延迟极低
 - **语音同传** - 翻译结果可同步语音播报（TTS），真正的"同声传译"体验
 - **8 语言互译** - 支持中/英/日/德/法/西/葡/印尼语
@@ -79,7 +79,7 @@ npm run tauri build
 
 首次运行时会弹出设置面板，填入从火山引擎获取的 **API Key** 即可。
 
-> 首次启动需要授予「屏幕录制」权限（系统设置 → 隐私与安全 → 屏幕录制）。
+> 首次启动需要授予「麦克风」权限。
 
 ## 技术架构
 
@@ -90,7 +90,7 @@ Frontend (Svelte 5 / SvelteKit)        Backend (Rust / Tokio)
 │  实时字幕显示 / 设置面板  │  Channel  │  会话编排 / 事件去重       │
 └─────────────────────────┘          ├───────────────────────────┤
                                       │ audio/                    │
-                                      │  capture.rs  ScreenCaptureKit│
+                                      │  capture.rs  CPAL microphone │
                                       │  resample.rs 48kHz→16kHz  │
                                       │  playback.rs TTS/Rodio    │
                                       ├───────────────────────────┤
@@ -104,7 +104,7 @@ Frontend (Svelte 5 / SvelteKit)        Backend (Rust / Tokio)
                                       └──────────────────────┘
 ```
 
-**数据流**: 系统音频 (48kHz stereo f32) → 重采样 (16kHz mono i16) → WebSocket 发送 → 豆包 ASR → Protobuf 响应 → 字幕事件 → 前端展示 & TTS 播报
+**数据流**: 麦克风输入 → 重采样 (16kHz mono i16) → WebSocket 发送 → 豆包 ASR → Protobuf 响应 → 字幕事件 → 前端展示 & TTS 播报
 
 ## 技术栈
 
@@ -113,7 +113,7 @@ Frontend (Svelte 5 / SvelteKit)        Backend (Rust / Tokio)
 | 桌面框架 | [Tauri 2.x](https://tauri.app/) |
 | 前端 | [Svelte 5](https://svelte.dev/) + [SvelteKit](https://kit.svelte.dev/) |
 | 后端 | Rust + [Tokio](https://tokio.rs/) |
-| 音频捕获 | [ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit) |
+| 音频捕获 | [CPAL](https://crates.io/crates/cpal) |
 | 音频重采样 | [Rubato](https://crates.io/crates/rubato) |
 | TTS 播放 | [Rodio](https://crates.io/crates/rodio) |
 | 通信协议 | WebSocket + [Protobuf](https://crates.io/crates/prost) |
@@ -129,7 +129,7 @@ TransEcho/
 │   ├── src/
 │   │   ├── commands.rs     # Tauri IPC 命令
 │   │   ├── audio/
-│   │   │   ├── capture.rs  # 系统音频捕获
+│   │   │   ├── capture.rs  # 默认麦克风输入捕获
 │   │   │   ├── resample.rs # 音频重采样
 │   │   │   └── playback.rs # TTS 播放
 │   │   └── transport/
@@ -151,7 +151,7 @@ TransEcho/
 <details>
 <summary><b>没有声音输入？</b></summary>
 
-确保已授予「屏幕录制」权限：系统设置 → 隐私与安全 → 屏幕录制 → 勾选 TransEcho。授权后需重启应用。
+确保已授予麦克风权限，并在系统声音设置中选择正确的默认输入设备。授权后可能需要重启应用。
 </details>
 
 <details>
@@ -166,7 +166,7 @@ TransEcho/
 <details>
 <summary><b>支持 Windows / Linux 吗？</b></summary>
 
-支持 macOS 14+ 和 Windows 10+。macOS 使用 ScreenCaptureKit 捕获系统音频，Windows 使用 WASAPI Loopback。Linux 暂不支持，欢迎 PR。
+支持 macOS 14+ 和 Windows 10+，两端均通过 CPAL 捕获默认麦克风输入。Linux 暂不支持，欢迎 PR。
 </details>
 
 ## 参与贡献

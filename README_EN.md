@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Capture system audio. Translate in real-time. Hear what you understand.</strong>
+  <strong>Capture microphone input. Translate speech in real time.</strong>
 </p>
 
 <p align="center">
@@ -24,11 +24,11 @@
 
 ---
 
-> Can't follow a Japanese livestream? Struggling in a multilingual meeting? TransEcho captures your Mac's system audio and translates it in real-time — subtitles + voice, zero-delay.
+> TransEcho captures the default microphone input and translates speech in real time with subtitles and optional voice playback.
 
 ## Features
 
-- **System Audio Capture** — Uses ScreenCaptureKit to capture audio from any app. No virtual audio driver needed.
+- **Microphone Input Capture** — Uses CPAL to read the default microphone across supported platforms.
 - **Real-time Translation** — Powered by Doubao Simultaneous Interpretation 2.0 LLM with ultra-low latency.
 - **Voice Interpretation** — TTS playback of translations for a true simultaneous interpretation experience.
 - **8 Languages** — Chinese, English, Japanese, German, French, Spanish, Portuguese, Indonesian.
@@ -64,7 +64,7 @@ npm run tauri dev
 
 On first launch, enter your **API Key** in the settings panel.
 
-> You'll need to grant Screen Recording permission: System Settings → Privacy & Security → Screen Recording.
+> You'll need to grant microphone permission when the app first starts.
 
 ## Architecture
 
@@ -73,7 +73,7 @@ Frontend (Svelte 5)                    Backend (Rust / Tokio)
 ┌───────────────────┐       IPC       ┌─────────────────────────┐
 │ Real-time subs UI │◄───────────────►│ Session orchestration   │
 └───────────────────┘     Channel     ├─────────────────────────┤
-                                       │ ScreenCaptureKit audio  │
+                                       │ CPAL microphone input   │
                                        │ Rubato resample 48→16k  │
                                        │ Rodio TTS playback      │
                                        │ WebSocket + Protobuf    │
@@ -91,7 +91,7 @@ Frontend (Svelte 5)                    Backend (Rust / Tokio)
 | Desktop | [Tauri 2.x](https://tauri.app/) |
 | Frontend | [Svelte 5](https://svelte.dev/) + SvelteKit |
 | Backend | Rust + [Tokio](https://tokio.rs/) |
-| Audio Capture | ScreenCaptureKit |
+| Audio Capture | CPAL microphone input |
 | Resampling | [Rubato](https://crates.io/crates/rubato) |
 | TTS Playback | [Rodio](https://crates.io/crates/rodio) |
 | Protocol | WebSocket + [Protobuf](https://crates.io/crates/prost) |

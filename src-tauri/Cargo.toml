@@ -1,6 +1,6 @@
 [package]
 name = "transecho"
-version = "0.1.8"
+version = "0.2.0"
 description = "TransEcho - 桌面端实时同声传译"
 edition = "2021"
 
@@ -39,4 +39,3 @@ dotenvy = "0.15"
 # Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
-

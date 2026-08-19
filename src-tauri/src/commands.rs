@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -580,4 +581,41 @@ pub async fn stop_interpretation(app: AppHandle) -> Result<(), String> {
         tx.send(()).await.map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn default_export_directory(app: AppHandle) -> Result<String, String> {
+    let directory = app
+        .path()
+        .document_dir()
+        .map_err(|e| format!("documents_directory_unavailable:{}", e))?
+        .join("TransEcho");
+    Ok(directory.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub async fn export_transcript(output_directory: String, content: String) -> Result<String, String> {
+    if content.trim().is_empty() {
+        return Err("empty_transcript".to_string());
+    }
+
+    let directory = PathBuf::from(output_directory.trim());
+    if !directory.is_absolute() {
+        return Err("export_path_must_be_absolute".to_string());
+    }
+
+    tokio::fs::create_dir_all(&directory)
+        .await
+        .map_err(|e| format!("create_export_directory_failed:{}", e))?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let path = directory.join(format!("TransEcho-{}.txt", timestamp));
+    tokio::fs::write(&path, content)
+        .await
+        .map_err(|e| format!("write_transcript_failed:{}", e))?;
+
+    Ok(path.to_string_lossy().into_owned())
 }

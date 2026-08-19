@@ -25,11 +25,20 @@
   let correctWords = $state("");
   let isRunning = $state(false);
   let status = $state("");
-  let subtitles: Array<{ source: string; translation: string }> = $state([]);
+  type TranscriptEntry = {
+    source: string;
+    translation: string;
+    sourceLang: string;
+    targetLang: string;
+  };
+
+  let subtitles: TranscriptEntry[] = $state([]);
+  let exportDirectory = $state("");
   let currentSource = $state("");
   let currentTranslation = $state("");
   let subtitleEl: HTMLElement;
   let wasAtBottom = $state(true);
+  let transcriptSaveQueue: Promise<void> = Promise.resolve();
 
   async function loadSettings() {
     try {
@@ -50,6 +59,7 @@
       hotWords = (await store.get<string>("hot_words")) || "";
       glossary = (await store.get<string>("glossary")) || "";
       correctWords = (await store.get<string>("correct_words")) || "";
+      exportDirectory = (await store.get<string>("export_directory")) || "";
       if (!apiKey) openSettings();
     } catch (e) {
       openSettings();
@@ -124,10 +134,13 @@
                 (s) => s.translation === currentTranslation
               );
               if (!isDup) {
-                subtitles = [
-                  ...subtitles.slice(-19),
-                  { source: currentSource, translation: currentTranslation },
-                ];
+                subtitles = [...subtitles, {
+                  source: currentSource,
+                  translation: currentTranslation,
+                  sourceLang,
+                  targetLang,
+                }].slice(-5000);
+                persistTranscript();
               }
               currentSource = "";
               currentTranslation = "";
@@ -199,6 +212,57 @@
     else start();
   }
 
+  function persistTranscript(): Promise<void> {
+    const snapshot = subtitles.map((entry) => ({ ...entry }));
+    transcriptSaveQueue = transcriptSaveQueue.then(async () => {
+      try {
+        const { load } = await import("@tauri-apps/plugin-store");
+        const store = await load("settings.json");
+        await store.set("transcript_cache", snapshot);
+        await store.save();
+      } catch (_) {}
+    });
+    return transcriptSaveQueue;
+  }
+
+  function languageLabel(code: string): string {
+    const labels: Record<string, string> = {
+      zh: "中文", en: "English", ja: "日本語", de: "Deutsch",
+      fr: "Français", es: "Español", pt: "Português", id: "Bahasa Indonesia",
+    };
+    return labels[code] || code;
+  }
+
+  async function exportTranscript() {
+    if (!subtitles.length) {
+      status = t(uiLang, "emptyTranscript");
+      return;
+    }
+    try {
+      if (!exportDirectory) {
+        exportDirectory = await invoke<string>("default_export_directory");
+      }
+      const content = subtitles.map((entry) =>
+        `[${languageLabel(entry.sourceLang)}] ${entry.source}\n[${languageLabel(entry.targetLang)}] ${entry.translation}`
+      ).join("\n\n") + "\n";
+      const path = await invoke<string>("export_transcript", {
+        outputDirectory: exportDirectory,
+        content,
+      });
+      status = t(uiLang, "exportSuccess").replace("{0}", path);
+    } catch (e) {
+      status = t(uiLang, "exportFailed").replace("{0}", `${e}`);
+    }
+  }
+
+  async function clearTranscript() {
+    subtitles = [];
+    currentSource = "";
+    currentTranslation = "";
+    await persistTranscript();
+    status = "";
+  }
+
   // Track scroll position for sticky auto-scroll
   function onSubtitleScroll() {
     if (!subtitleEl) return;
@@ -219,7 +283,14 @@
   });
 
   $effect(() => {
-    loadSettings();
+    loadSettings().then(async () => {
+      try {
+        const { load } = await import("@tauri-apps/plugin-store");
+        const store = await load("settings.json");
+        const cached = await store.get<TranscriptEntry[]>("transcript_cache");
+        if (Array.isArray(cached)) subtitles = cached.slice(-5000);
+      } catch (_) {}
+    });
 
     // Reload settings when settings window saves and closes
     const unlistenPromise = listen("settings-changed", () => { loadSettings(); });
@@ -310,6 +381,10 @@
     {#if status}
       <span class="status" class:error={status.length > 0 && !isRunning}>{status}</span>
     {/if}
+    <div class="memory-actions">
+      <button class="secondary-btn" onclick={exportTranscript} disabled={!subtitles.length}>{t(uiLang, "exportTranscript")}</button>
+      <button class="secondary-btn" onclick={clearTranscript} disabled={!subtitles.length}>{t(uiLang, "clearTranscript")}</button>
+    </div>
     <button
       class="main-btn"
       class:running={isRunning}
@@ -511,6 +586,24 @@
   .status.error {
     color: var(--danger);
   }
+
+  .memory-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .secondary-btn {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-muted);
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .secondary-btn:hover { color: var(--text); }
+  .secondary-btn:disabled { opacity: 0.35; pointer-events: none; }
 
   .main-btn {
     width: 100%;

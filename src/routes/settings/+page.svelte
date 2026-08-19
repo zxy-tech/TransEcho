@@ -15,6 +15,7 @@
   let hotWords = $state("");
   let glossary = $state("");
   let correctWords = $state("");
+  let exportDirectory = $state("");
 
   const voices = [
     { id: "zh_female_vv_uranus_bigtts", key: "voiceFemaleA" },
@@ -33,6 +34,11 @@
       hotWords = (await store.get<string>("hot_words")) || "";
       glossary = (await store.get<string>("glossary")) || "";
       correctWords = (await store.get<string>("correct_words")) || "";
+      exportDirectory = (await store.get<string>("export_directory")) || "";
+      if (!exportDirectory) {
+        const { invoke } = await import("@tauri-apps/api/core");
+        exportDirectory = await invoke<string>("default_export_directory");
+      }
     } catch (_) {}
   }
 
@@ -46,6 +52,7 @@
       await store.set("hot_words", hotWords);
       await store.set("glossary", glossary);
       await store.set("correct_words", correctWords);
+      await store.set("export_directory", exportDirectory.trim());
       await store.save();
     } catch (e) {
       console.error("Failed to save:", e);
@@ -96,6 +103,14 @@
           </div>
         </div>
       {/if}
+
+      <div class="divider"></div>
+
+      <div class="field">
+        <label for="export-directory">{t(uiLang, "exportDirectory")}</label>
+        <p class="field-help">{t(uiLang, "exportDirectoryHelp")}</p>
+        <input id="export-directory" class="path-input" type="text" bind:value={exportDirectory} placeholder={t(uiLang, "exportDirectoryPlaceholder")} />
+      </div>
     {:else}
       <div class="corpus-desc">{t(uiLang, "corpusDesc")}</div>
 
@@ -238,7 +253,8 @@
     letter-spacing: 0.5px;
   }
 
-  .field input[type="password"] {
+  .field input[type="password"],
+  .field input.path-input {
     width: 100%;
     padding: 14px 16px;
     border: 1px solid var(--border);

@@ -23,6 +23,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::start_interpretation,
             commands::stop_interpretation,
+            commands::default_export_directory,
+            commands::export_transcript,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

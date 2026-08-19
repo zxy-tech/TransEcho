@@ -3675,12 +3675,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
-name = "screencapturekit"
-version = "1.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99b732b2db50b25cfbcb171e1b7abda06e77873aeef493e635eb209482fdd149"
-
-[[package]]
 name = "security-framework"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4971,7 +4965,7 @@ dependencies = [
 
 [[package]]
 name = "transecho"
-version = "0.1.8"
+version = "0.2.0"
 dependencies = [
  "cpal",
  "dotenvy",
@@ -4981,7 +4975,6 @@ dependencies = [
  "prost-build",
  "rodio",
  "rubato",
- "screencapturekit",
  "serde",
  "serde_json",
  "tauri",
